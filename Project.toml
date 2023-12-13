@@ -1,0 +1,10 @@
+name = "WrapIt"
+authors = [ "Philippe Gras <philippe.gras@cern.ch>" ]
+uuid = "962878d8-9763-11ee-8c14-fbf60c98afae"
+version = "1.0.0"
+
+[deps]
+WrapIt_jll = "c56a8eb6-3dd0-5432-903d-1a19a3d2a949"
+
+[compat]
+WrapIt_jll = "1.0.0"
