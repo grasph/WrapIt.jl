@@ -1,5 +1,3 @@
-# 🚧 Work in Progress 🚧
-
 # Julia package to install [WrapIt!](https://github.com/grasph/wrapit)
 
 This package will allow installation of WrapIt software using the Julia Binary package manager. WrapIt is an application written in C++ to automatize Julia bindings for C++ libraries.
@@ -8,7 +6,6 @@ The examples are not installed and can be downloaded from the [wrapit repository
 
 ## Usage
 
-🚧 This will work, once the package has been deployed.
 
 Software download is performed through the Julia package manager and its central registry. It is not needed to clone this repository on your computer. The only software needed to start the installation is [Julia](https://julialang.org/downloads/).
 
