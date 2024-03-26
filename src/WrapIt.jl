@@ -12,6 +12,12 @@ export wrapit, wrapit_path
 
 import WrapIt_jll
 
+function __init__()
+    if Sys.iswindows()
+        error("The $(@__MODULE__) package cannot be used on Windows operating systems.")
+    end
+end
+
 """
   wrapit_pah
 
@@ -72,15 +78,21 @@ Launch the [wrapit](https://www.github.com/grasph/wrapit) command. The command o
  * <option name>=<option value> for options that takes an argument. E.g., `resource_dir=/usr/lib/...` to pass `--resource-dir=/usr/lib...` option.
  * <option name>=true for options with no argument. E.g., `force=true` to pass the `--force` option.
 
-Underscores are used in the argument name in place of dashs used in the option name.
+Underscores are used in the argument name in place of dashs used in the option name. 
 
 Call `wrapit(help=true)` to get the list of options.
 
+If `returncode = true` is passed as argument, the function returns the exit code of the `wrapit` command (0 in case of success) and `nothing` otherwise.
 """
-function wrapit(args...; kwargs...)
+function wrapit(args...; kwargs...)::Union{Int, Nothing}
     cmd_args = [WrapIt.wrapit_path]
-    
+
+    returncode = false
     for (k, v) in kwargs
+        if k == :returncode
+            returncode = convert(Bool, v)
+            continue
+        end
         k = replace(string(k), "_" => "-")
         cmd_opt = (length(k) == 1 ? "-" : "--") * k
         if isa(v, Bool)
@@ -92,7 +104,20 @@ function wrapit(args...; kwargs...)
 
     append!(cmd_args, args)
     
-    run(Cmd(Cmd(cmd_args), ignorestatus=true)).exitcode
+    p =  run(Cmd(Cmd(cmd_args), ignorestatus=true))
+
+    if returncode
+        if p.termsignal > 0
+            #if killed, we expect 128 + signal #, while p.exitcode is 0
+            exitcode = 128 + p.termsignal
+        else
+            exitcode = p.exitcode
+        end
+        return exitcode
+    else
+        return nothing
+    end
+    nothing
 end
 
 end # module Wrapit
