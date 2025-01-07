@@ -18,8 +18,19 @@ function __init__()
     end
 end
 
+
+function _library_path_varname()
+    if Sys.islinux()
+        return "LD_LIBRARY_PATH"
+    elseif Sys.isapple()
+        return "DYLIB_LIBRARY_PATH"
+    else
+        error("The platform is not supported.")
+    end
+end
+
 """
-  wrapit_pah
+  wrapit_path
 
 Path to the wrapit executable as installed by the package manager. Use the [`Wrapit.install()`](@ref) function to install a shortcut in a more convenient directory e.g. a directory included in the shell executable search PATH.
 """
@@ -53,21 +64,44 @@ function install(path=".")
         println("The wrapit command is already installed in ", destdir_h, ".")
         return 0
     end
-    
+
     if isfile(destpath)
         println(stderr, "File ", destpath , " is on the way. You need to remove it before running install.")
         return 1
     end
+
+
+    julialib = joinpath(dirname(Sys.BINDIR), "lib")
     
     try
-        symlink(wrapit_path, destpath)
+        open(destpath, "w") do f
+            print(f, """
+#!/bin/sh
+
+exe="$wrapit_path"
+julialibdir=\"$julialib\"
+
+[ -f "\$exe" ] || { echo "Error. The wrapit binary file was not found, please reinstall it from Julia (import WrapIt; WrapIt.install())." 1>&2; exit 1; }
+
+
+[ -d "\$julialibdir" ] || { echo "Warning. The Julia binaries used to install wrapit were not found. In case of error about GLIBCXX, please reinstall wrapit from your current Julia installation." 1>&2; }
+
+export $(_library_path_varname())="\$julialibdir:\$julialibdir/julia:$(_library_path_varname())\"
+
+exec "\$exe" "\$@"
+""")
+        end
+
+        #made the file executable:
+        chmod(destpath, stat(destpath).mode | 0o111)
+        
+        println("Command wrapit installed in ", destdir_h, ". Run ", destpath, " --help to get help on the command invocation.")
+
     catch e
         showerror(stderr, e)
-        println(xstderr, "Installation failed")
+        println(stderr, ". Installation failed.")
     end
 
-    println("Command wrapit installed in ", destdir_h, ". Run ", destpath, " --help to get help on the command invocation.")
-    
     return 0
 end
 
@@ -78,7 +112,7 @@ Launch the [wrapit](https://www.github.com/grasph/wrapit) command. The command o
  * <option name>=<option value> for options that takes an argument. E.g., `resource_dir=/usr/lib/...` to pass `--resource-dir=/usr/lib...` option.
  * <option name>=true for options with no argument. E.g., `force=true` to pass the `--force` option.
 
-Underscores are used in the argument name in place of dashs used in the option name. 
+Underscores are used in the argument name in place of dashs used in the option name.
 
 Call `wrapit(help=true)` to get the list of options.
 
@@ -103,8 +137,23 @@ function wrapit(args...; kwargs...)::Union{Int, Nothing}
     end
 
     append!(cmd_args, args)
+
+    env = copy(ENV)
+    julialib = joinpath(dirname(Sys.BINDIR), "lib")
+    if Sys.islinux()
+        var = "LD_LIBRARY_PATH"
+    elseif Sys.isappled()
+        var = "DYLIB_LIBRARY_PATH"
+    else
+        error("The platform is not supported.")
+    end
+    env[var] = julialib * ":" * joinpath(julialib, "julia")
+
+    if haskey(ENV, var)
+        env[var] *= ":" * ENV[var]
+    end
     
-    p =  run(Cmd(Cmd(cmd_args), ignorestatus=true))
+    p =  run(Cmd(Cmd(cmd_args), env=env, ignorestatus=true))
 
     if returncode
         if p.termsignal > 0
