@@ -11,6 +11,7 @@ module WrapIt
 export wrapit, wrapit_path
 
 import WrapIt_jll
+import Base.Filesystem.samefile
 
 function __init__()
     if Sys.iswindows()
