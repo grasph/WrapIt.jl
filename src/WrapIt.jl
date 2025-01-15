@@ -11,7 +11,7 @@ module WrapIt
 export wrapit, wrapit_path
 
 import WrapIt_jll
-import Base.Filesystem.samefile
+import Base.Filesystem.samefile #required for Julia versions < 1.9
 
 function __init__()
     if Sys.iswindows()
