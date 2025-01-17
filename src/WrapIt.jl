@@ -24,10 +24,18 @@ function _library_path_varname()
     if Sys.islinux()
         return "LD_LIBRARY_PATH"
     elseif Sys.isapple()
-        return "DYLIB_LIBRARY_PATH"
+        return "DYLD_LIBRARY_PATH"
     else
         error("The platform is not supported.")
     end
+end
+
+function _library_path_value()
+    paths = [ joinpath(WrapIt_jll.artifact_dir, "lib"); # required to get llvm and clang shipped with wrapit taking precedence on once from Julia installation
+              WrapIt_jll.LIBPATH_list...; #libcrypto from OpenSSL
+              joinpath(dirname(Sys.BINDIR), "lib"); joinpath(dirname(Sys.BINDIR), "lib", "julia") #c++ std lib from Julia installation
+            ]
+    join(paths, ":")
 end
 
 """
@@ -80,14 +88,12 @@ function install(path=".")
 #!/bin/sh
 
 exe="$wrapit_path"
-julialibdir=\"$julialib\"
-
 [ -f "\$exe" ] || { echo "Error. The wrapit binary file was not found, please reinstall it from Julia (import WrapIt; WrapIt.install())." 1>&2; exit 1; }
 
 
 [ -d "\$julialibdir" ] || { echo "Warning. The Julia binaries used to install wrapit were not found. In case of error about GLIBCXX, please reinstall wrapit from your current Julia installation." 1>&2; }
 
-export $(_library_path_varname())="\$julialibdir:\$julialibdir/julia:$(_library_path_varname())\"
+export $(_library_path_varname())="$(_library_path_value())"
 
 exec "\$exe" "\$@"
 """)
@@ -140,19 +146,14 @@ function wrapit(args...; kwargs...)::Union{Int, Nothing}
     append!(cmd_args, args)
 
     env = copy(ENV)
-    julialib = joinpath(dirname(Sys.BINDIR), "lib")
-    if Sys.islinux()
-        var = "LD_LIBRARY_PATH"
-    elseif Sys.isappled()
-        var = "DYLIB_LIBRARY_PATH"
-    else
-        error("The platform is not supported.")
-    end
-    env[var] = julialib * ":" * joinpath(julialib, "julia")
+    varname = _library_path_varname()
+    env[varname] = _library_path_value()
 
-    if haskey(ENV, var)
-        env[var] *= ":" * ENV[var]
+    if haskey(ENV, varname)
+        env[varname] *= ":" * ENV[varname]
     end
+
+    println("env[$varname] = ", env[varname])
     
     p =  run(Cmd(Cmd(cmd_args), env=env, ignorestatus=true))
 
