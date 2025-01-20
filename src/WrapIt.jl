@@ -83,6 +83,20 @@ function install(path=".")
     julialib = joinpath(dirname(Sys.BINDIR), "lib")
     
     try
+        if Sys.isapple()
+            set_sdkroot_code = raw"""
+
+if [ -z "$SKDROOT" ]; then
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    [ $? = 0 ] || { echo "Failed to set SDKROOT environment variable. Please ensure XCode is installed and xcrun is available" 1>&2; exit 1; }
+    [ -d "$SDKROOT" ] || { echo "Directory '$SDKROOT' returned by the 'xcrun --sdk macosx --show-sdk-path' command was not found." 1>&2; exit 1;}
+else
+    [ -d "$SDKROOT" ] || { echo "Directory '$SDKROOT' set in the SDKROOT environment variable was not found." 1>&2; exit 1;}
+fi
+"""
+        else
+            set_sdkroot_code = ""
+        end
         open(destpath, "w") do f
             print(f, """
 #!/bin/sh
@@ -90,9 +104,9 @@ function install(path=".")
 exe="$wrapit_path"
 [ -f "\$exe" ] || { echo "Error. The wrapit binary file was not found, please reinstall it from Julia (import WrapIt; WrapIt.install())." 1>&2; exit 1; }
 
-
-[ -d "\$julialibdir" ] || { echo "Warning. The Julia binaries used to install wrapit were not found. In case of error about GLIBCXX, please reinstall wrapit from your current Julia installation." 1>&2; }
-
+""",
+                  set_sdkroot_code,
+                  """
 export $(_library_path_varname())="$(_library_path_value())"
 
 exec "\$exe" "\$@"
@@ -153,7 +167,20 @@ function wrapit(args...; kwargs...)::Union{Int, Nothing}
         env[varname] *= ":" * ENV[varname]
     end
 
-    println("env[$varname] = ", env[varname])
+    if Sys.isapple()
+        if haskey(env, "SDKROOT")
+            sdkroot = env["SDKROOT"]
+            isdir(sdkroot) || error("Directory '$sdroot' set by SDKROOT environment variable was not found")
+        else
+            try
+                env["SDKROOT"] = readchomp(`xcrun --sdk macosx --show-sdk-path`)
+                sdkroot = env["SDKROOT"]
+                isdir(sdkroot) || error("Directory returned by 'xcrun --sdk macosx --show-sdk-path' command was not found.")
+            catch
+                error("Failed to run the command 'xcrun --sdk macosx --show-sdk-path'. Please check XCode is installed on your system.")
+            end
+        end
+    end
     
     p =  run(Cmd(Cmd(cmd_args), env=env, ignorestatus=true))
 
