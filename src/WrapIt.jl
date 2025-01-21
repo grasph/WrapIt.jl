@@ -86,7 +86,7 @@ function install(path=".")
         if Sys.isapple()
             set_sdkroot_code = raw"""
 
-if [ -z "$SKDROOT" ]; then
+if [ -z "$SDKROOT" ]; then
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
     [ $? = 0 ] || { echo "Failed to set SDKROOT environment variable. Please ensure XCode is installed and xcrun is available" 1>&2; exit 1; }
     [ -d "$SDKROOT" ] || { echo "Directory '$SDKROOT' returned by the 'xcrun --sdk macosx --show-sdk-path' command was not found." 1>&2; exit 1;}
